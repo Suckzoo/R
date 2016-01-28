@@ -7,7 +7,7 @@ DEPS= .make.dep
 
 INCLUDES= -Iinclude -I$(GTEST_PATH)/include
 LDFLAGS= -L$(GTEST_PATH)
-LIBS= -lgtest_main -lgtest
+LIBS= -lgtest_main -lgtest -lpthread
 
 HEADERS = $(wildcard include/*.hh) $(wildcard include/*.hpp)
 TEST_SRCS = $(wildcard test/*.cpp)
