@@ -1,3 +1,11 @@
+# eclipse project settings
+.project
+.cproject
+.settings
+
+# additional temp files
+.make.dep
+
 # Compiled Object files
 *.slo
 *.lo
