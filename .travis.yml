@@ -6,7 +6,7 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-4.8']
+          packages: ['g++-4.8', 'valgrind']
       env: COMPILER=g++-4.8
 
     - os: linux
@@ -14,7 +14,7 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-4.9']
+          packages: ['g++-4.9', 'valgrind']
       env: COMPILER=g++-4.9
 
     - os: linux
@@ -22,19 +22,23 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-5']
+          packages: ['g++-5', 'valgrind']
       env: COMPILER=g++-5
 
     - os: linux
       compiler: clang
       env: COMPILER=clang++
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['valgrind']
 
     - os: linux
       compiler: clang
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.5']
-          packages: ['clang-3.5']
+          packages: ['clang-3.5', 'valgrind']
       env: COMPILER=clang++-3.5
 
     - os: linux
@@ -42,7 +46,7 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.6']
-          packages: ['clang-3.6']
+          packages: ['clang-3.6', 'valgrind']
       env: COMPILER=clang++-3.6
 
     - os: linux
@@ -50,7 +54,7 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7']
-          packages: ['clang-3.7']
+          packages: ['clang-3.7', 'valgrind']
       env: COMPILER=clang++-3.7
 
 script: CXX=$COMPILER make && make test
