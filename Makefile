@@ -15,9 +15,9 @@ HEADERS = $(wildcard include/*.hh) $(wildcard include/*.hpp)
 TEST_SRCS = $(wildcard test/*.cpp)
 TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 
-all: $(TEST_BIN)
+all: $(DEPS) $(TEST_BIN)
 
-test: $(TEST_BIN)
+test: $(DEPS) $(TEST_BIN)
 	valgrind \
 	--leak-check=full --trace-children=yes --error-exitcode=1 \
 	$(TEST_BIN)
