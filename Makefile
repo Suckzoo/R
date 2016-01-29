@@ -20,8 +20,9 @@ all: $(TEST_BIN)
 test: $(TEST_BIN)
 	valgrind \
 	--leak-check=full --trace-children=yes --error-exitcode=1 \
-	--errors-for-leak-kinds=definite,indirect,possible,reachable \
 	$(TEST_BIN)
+	#not supported now
+	#--errors-for-leak-kinds=definite,indirect,possible,reachable \
 
 $(TEST_BIN): $(TEST_OBJS) $(GTEST_LIBS)
 	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS) $(LIBS)
