@@ -1,6 +1,6 @@
 .PHONY: all test clean
 
-CXX+= -std=gnu++1y
+CXX+= -std=gnu++11
 
 GTEST_PATH= 3rdparty/googletest
 GTEST_LIBS= $(GTEST_PATH)/libgtest.a $(GTEST_PATH)/libgtest_main.a
