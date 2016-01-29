@@ -19,7 +19,6 @@ typedef ShiftedInt<uint16_t, 4> TestInt;
 TEST(CoreShiftedIntTest, ClassSize)
 {
 	EXPECT_EQ(sizeof(TestInt), sizeof(uint16_t));
-	void* x = malloc(100);
 }
 
 TEST(CoreShiftedIntTest, Precision_Create)
