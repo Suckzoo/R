@@ -1,5 +1,7 @@
 .PHONY: all test clean
 
+CXX+= -std=gnu++1y
+
 GTEST_PATH= 3rdparty/googletest
 GTEST_LIBS= $(GTEST_PATH)/libgtest.a $(GTEST_PATH)/libgtest_main.a
 TEST_BIN= bin/test
@@ -19,7 +21,7 @@ test: $(TEST_BIN)
 	./$(TEST_BIN)
 
 $(TEST_BIN): $(TEST_OBJS) $(GTEST_LIBS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $(TEST_OBJS) -o $@ $(LDFLAGS) $(LIBS)
+	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS) $(LIBS)
 
 $(GTEST_PATH)/Makefile:
 	cd $(GTEST_PATH) && cmake .
