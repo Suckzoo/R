@@ -18,7 +18,10 @@ TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 all: $(TEST_BIN)
 
 test: $(TEST_BIN)
-	./$(TEST_BIN)
+	valgrind \
+	--leak-check=full --show-reachable=yes --trace-children=yes \
+	--num-callers=100 --errors-for-leak-kinds=all --error-exitcode=1 \
+	$(TEST_BIN)
 
 $(TEST_BIN): $(TEST_OBJS) $(GTEST_LIBS)
 	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS) $(LIBS)
