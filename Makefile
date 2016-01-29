@@ -19,8 +19,8 @@ all: $(TEST_BIN)
 
 test: $(TEST_BIN)
 	valgrind \
-	--leak-check=full --show-reachable=yes --trace-children=yes \
-	--errors-for-leak-kinds=all --error-exitcode=1 \
+	--leak-check=full --trace-children=yes --error-exitcode=1 \
+	--errors-for-leak-kinds=definite,indirect,possible,reachable \
 	$(TEST_BIN)
 
 $(TEST_BIN): $(TEST_OBJS) $(GTEST_LIBS)
