@@ -45,6 +45,16 @@ struct __passed_data
 	}payload;
 };
 
+template<>
+struct __passed_data<void>
+{
+	enum __data_type type;
+	struct
+	{
+		std::exception exception;
+	}payload;
+};
+
 template< typename CallData >
 class CallType
 {
@@ -168,7 +178,27 @@ public:
     //Precond: bool() is true
     //Execution control is transferred to coroutine-function
     //and the argument arg is passed to the coroutine-function.
-    CallType& operator()(CallData arg)
+	template<typename CalledData>
+    CallType& operator()(CalledData arg)
+    {
+    	auto trigger = [&,arg]()->void {
+    		__call_from_others(arg);
+    	};
+    	__push_helper(trigger);
+		return *this;
+    }
+
+    CallType& operator()(void)
+    {
+    	auto trigger = [&]()->void {
+    		__call_from_others();
+    	};
+    	__push_helper(trigger);
+    	return *this;
+    }
+
+private:
+    void __push_helper(std::function<void(void)> function)
     {
     	{
     		std::lock_guard<std::mutex> guard(*_mutex);
@@ -181,47 +211,54 @@ public:
     			_is_started = true;
     		}
     	}
-		__call_from_others(arg);
-		{
-			std::unique_lock<std::mutex> lock(*_mutex, std::defer_lock);
-			lock.lock();
+    	function();
+    	{
+    		std::unique_lock<std::mutex> lock(*_mutex, std::defer_lock);
+    		lock.lock();
 
-			while(_incoming_messages.empty() && _child->_is_running)
-				_cv->wait(lock);
-			if(_incoming_messages.empty())
-			{
-				lock.unlock();
-				return *this;
-			}
+    		while(_incoming_messages.empty() && _child->_is_running)
+    			_cv->wait(lock);
+    		if(_incoming_messages.empty())
+    		{
+    			lock.unlock();
+    			return;
+    		}
 
-			auto message = _incoming_messages.front();
+    		auto message = _incoming_messages.front();
 
-			if(message->type == EXCEPTION)
-			{
-				std::exception exception = message->payload.exception;
-				lock.unlock();
-				throw exception;
-			}
-			if(message->type == DONE)
-			{
-				_incoming_messages.pop();
-				delete message;
-				lock.unlock();
-				return *this;
-			}
-			assert(0);
-		}
-		return *this;
+    		if(message->type == EXCEPTION)
+    		{
+    			std::exception exception = message->payload.exception;
+    			lock.unlock();
+    			throw exception;
+    		}
+    		if(message->type == DONE)
+    		{
+    			_incoming_messages.pop();
+    			delete message;
+    			lock.unlock();
+    			return;
+    		}
+    		assert(0);
+    	}
+    	return;
     }
 
 public:
-    void __call_from_others(CallData data)
+    template<typename CalledData>
+    void __call_from_others(CalledData data)
     {
     	std::lock_guard<std::mutex> guard(*_mutex);
     	auto my_message = new MessageType;
     	my_message->type = DATA;
     	my_message->payload.value = data;
     	_child->_incoming_messages.push(my_message);
+    	_child->_cv->notify_one();
+    }
+
+    void __call_from_others(void)
+    {
+    	std::lock_guard<std::mutex> guard(*_mutex);
     	_child->_cv->notify_one();
     }
 

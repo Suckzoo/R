@@ -65,7 +65,7 @@ public:
 	}
 };
 
-TEST(Coroutine_Test, Empty)
+TEST(Coroutine_Test, BasicInt)
 {
 	SafeQueue<int> result;
 
@@ -96,5 +96,42 @@ TEST(Coroutine_Test, Empty)
 	EXPECT_EQ(5, result.take());
 	EXPECT_EQ(6, result.take());
 	EXPECT_EQ(7, result.take());
+	EXPECT_EQ(8, result.take());
+}
+
+
+TEST(Coroutine_Test, BasicVoid)
+{
+	SafeQueue<int> result;
+
+	auto cooperative = [&result](YieldType<void> &yield)
+	{
+		result.push(2);
+		//result.push(yield.get());
+		result.push(4);
+		yield();
+		result.push(6);
+		//result.push(yield.get());
+		result.push(8);
+		yield();
+		yield();
+	};
+
+	CallType<void> source(cooperative);
+	result.push(1);
+	//source(3);
+	source();
+	result.push(5);
+	//source(7);
+	source();
+
+	ASSERT_EQ(6, result.size());
+	EXPECT_EQ(1, result.take());
+	EXPECT_EQ(2, result.take());
+	//EXPECT_EQ(3, result.take());
+	EXPECT_EQ(4, result.take());
+	EXPECT_EQ(5, result.take());
+	EXPECT_EQ(6, result.take());
+	//EXPECT_EQ(7, result.take());
 	EXPECT_EQ(8, result.take());
 }
