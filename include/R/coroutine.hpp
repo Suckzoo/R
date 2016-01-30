@@ -367,6 +367,13 @@ public:
     friend class CallType<YieldData>;
 };
 
+template<typename T>
+struct symmetric_coroutine
+{
+	typedef CallType<T> call_type;
+	typedef YieldType<T> yield_type;
+};
+
 }
 
 

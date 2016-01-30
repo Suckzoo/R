@@ -5,15 +5,11 @@
  *      Author: KHL
  */
 
-
 #include <cstdio>
 #include <gtest/gtest.h>
-#include <R/coroutine.hpp>
 #include <iostream>
 #include <queue>
 #include <mutex>
-
-using namespace R;
 
 template<typename T>
 class SafeQueue
@@ -69,7 +65,7 @@ TEST(Coroutine_Test, BasicInt)
 {
 	SafeQueue<int> result;
 
-	auto cooperative = [&result](YieldType<int> &yield)
+	auto cooperative = [&result](symmetric_coroutine<int>::yield_type &yield)
 	{
 		result.push(2);
 		result.push(yield.get());
@@ -82,7 +78,7 @@ TEST(Coroutine_Test, BasicInt)
 		yield();
 	};
 
-	CallType<int> source(cooperative);
+	symmetric_coroutine<int>::call_type source(cooperative);
 	result.push(1);
 	source(3);
 	result.push(5);
@@ -104,7 +100,7 @@ TEST(Coroutine_Test, BasicVoid)
 {
 	SafeQueue<int> result;
 
-	auto cooperative = [&result](YieldType<void> &yield)
+	auto cooperative = [&result](symmetric_coroutine<void>::yield_type &yield)
 	{
 		result.push(2);
 		//result.push(yield.get());
@@ -117,7 +113,7 @@ TEST(Coroutine_Test, BasicVoid)
 		yield();
 	};
 
-	CallType<void> source(cooperative);
+	symmetric_coroutine<void>::call_type source(cooperative);
 	result.push(1);
 	//source(3);
 	source();

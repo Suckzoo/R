@@ -3,6 +3,10 @@
 CXX+= -std=gnu++11
 CXXFLAGS+= -O0 -g
 
+ifdef BOOST_ENABLED
+CXXFLAGS+= -DBOOSE_ENABLED
+endif
+
 GTEST_PATH= 3rdparty/googletest
 GTEST_LIBS= $(GTEST_PATH)/libgtest.a $(GTEST_PATH)/libgtest_main.a
 TEST_BIN= bin/test
