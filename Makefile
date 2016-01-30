@@ -5,6 +5,9 @@ CXXFLAGS+= -O0 -g
 
 ifdef BOOST_ENABLED
 CXXFLAGS+= -DBOOST_ENABLED=$(BOOST_ENABLED)
+LIBS= -lboost_coroutine -lboost_system -lboost_thread -lboost_context
+else
+LIBS=
 endif
 
 GTEST_PATH= 3rdparty/googletest
@@ -14,7 +17,7 @@ DEPS= .make.dep
 
 INCLUDES= -Iinclude -I$(GTEST_PATH)/include
 LDFLAGS= -L$(GTEST_PATH)
-LIBS= -lgtest_main -lgtest -lpthread
+LIBS+= -lgtest_main -lgtest -lpthread
 
 HEADERS = $(wildcard include/*.hh) $(wildcard include/*.hpp)
 TEST_SRCS = $(wildcard test/*.cpp)
