@@ -4,7 +4,7 @@ CXX+= -std=gnu++11
 CXXFLAGS+= -O0 -g
 
 ifdef BOOST_ENABLED
-CXXFLAGS+= -DBOOSE_ENABLED
+CXXFLAGS+= -DBOOST_ENABLED
 endif
 
 GTEST_PATH= 3rdparty/googletest
