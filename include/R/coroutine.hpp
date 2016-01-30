@@ -14,6 +14,7 @@
 #include <queue>
 #include <exception>
 #include <cassert>
+#include <functional>
 
 namespace R
 {
@@ -57,28 +58,11 @@ private:
 	YieldType<CallData>* _child;
 	std::mutex* _mutex;
 	std::condition_variable *_cv;
-	Body _body;
+	std::function<void(void)> _safe_body;
 	bool _is_started;
 	std::thread* _runner;
+	bool _is_done;
 
-	void safe_wrapper()
-	{
-		_child->_lock->lock();
-		try
-		{
-			_body(*_child);
-		}
-		catch(const std::exception& err)
-		{
-			auto msg = new MessageType;
-			msg->type = EXCEPTION;
-			msg->payload.exception = err;
-			_incoming_messages.push(msg);
-			_cv->notify_one();
-		}
-		_child->_is_running = false;
-		_child->_lock->unlock();
-	};
 public:
 	//not a coro
 	CallType() noexcept
@@ -87,20 +71,40 @@ public:
 		_child = nullptr;
 		_mutex = nullptr;
 		_cv = nullptr;
-		_body = nullptr;
 		_is_started = false;
 		_runner = nullptr;
+		_is_done = false;
 	}
 
 	//Creates a coroutine which will execute fn
-	CallType(Body fn) : CallType()
+	template<typename Function>
+	CallType(Function && fn) : CallType()
     {
 		_not_a_coro = false;
 
     	_mutex = new std::mutex;
-    	_body = fn;
     	_child = new YieldType<CallData>(this);
     	_cv = new std::condition_variable;
+
+    	_safe_body = [&]()->void
+    	{
+    		_child->_lock->lock();
+    		try
+    		{
+    			fn(*_child);
+    		}
+    		catch(const std::exception& err)
+    		{
+    			auto msg = new MessageType;
+    			msg->type = EXCEPTION;
+    			msg->payload.exception = err;
+    			_incoming_messages.push(msg);
+    			_cv->notify_one();
+    		}
+    		_child->_is_running = false;
+    		_cv->notify_one();
+    		_child->_lock->unlock();
+    	};
     }
 
     ~CallType()
@@ -108,13 +112,18 @@ public:
     	if(!_not_a_coro)
     	{
     		assert(_mutex != nullptr);
-    		assert(_body != nullptr);
     		assert(_child != nullptr);
     		assert(_child->_not_a_coro == false);
     		assert(_child->_parent == this);
     		if(_is_started)
     		{
     			assert(_runner != nullptr);
+    			assert(_is_done == false);
+    			{
+    				std::lock_guard<std::mutex> guard(*_mutex);
+    				_is_done = true;
+    				_child->_cv->notify_one();
+    			}
     			_runner->join();
     			delete _runner;
     		}
@@ -161,40 +170,47 @@ public:
     //and the argument arg is passed to the coroutine-function.
     CallType& operator()(CallData arg)
     {
-    	std::unique_lock<std::mutex> lock(*_mutex);
-		if (!_is_started)
+    	{
+    		std::lock_guard<std::mutex> guard(*_mutex);
+    		if (!_is_started)
+    		{
+    			_child->_is_running = true;
+    			_runner = new std::thread(
+    					_safe_body
+    			);
+    			_is_started = true;
+    		}
+    	}
+		__call_from_others(arg);
 		{
-			_child->_is_running = true;
-			_runner = new std::thread(
-					safe_wrapper,
-					this
-					);
-			_is_started = true;
-		}
+			std::unique_lock<std::mutex> lock(*_mutex, std::defer_lock);
+			lock.lock();
 
-		while(_incoming_messages.empty())
-			_cv->wait(lock);
-		auto message = _incoming_messages.front();
+			while(_incoming_messages.empty() && _child->_is_running)
+				_cv->wait(lock);
+			if(_incoming_messages.empty())
+			{
+				lock.unlock();
+				return *this;
+			}
 
-		if(message->type == EXCEPTION)
-		{
-			std::exception exception = message->payload.exception;
-			lock.unlock();
-			throw exception;
+			auto message = _incoming_messages.front();
+
+			if(message->type == EXCEPTION)
+			{
+				std::exception exception = message->payload.exception;
+				lock.unlock();
+				throw exception;
+			}
+			if(message->type == DONE)
+			{
+				_incoming_messages.pop();
+				delete message;
+				lock.unlock();
+				return *this;
+			}
+			assert(0);
 		}
-		if(message->type == DONE)
-		{
-			_incoming_messages.pop();
-			delete message;
-			auto my_message = new MessageType;
-			my_message->type = DATA;
-			my_message->payload.value = arg;
-			_child->_incoming_messages.push(my_message);
-			_child->_cv->notify_one();
-			lock.unlock();
-			return *this;
-		}
-		assert(0);
 		return *this;
     }
 
@@ -204,9 +220,9 @@ public:
     	std::lock_guard<std::mutex> guard(*_mutex);
     	auto my_message = new MessageType;
     	my_message->type = DATA;
-    	my_message->payload.data = data;
+    	my_message->payload.value = data;
     	_child->_incoming_messages.push(my_message);
-    	_child->_cv.notify_one();
+    	_child->_cv->notify_one();
     }
 
     friend class YieldType<CallData>;
@@ -279,7 +295,8 @@ public:
     	_parent->_incoming_messages.push(my_message);
     	_parent->_cv->notify_one();
 
-    	_cv->wait(*_lock);
+    	if(!_parent->_is_done)
+    		_cv->wait(*_lock);
     	return *this;
     }
 
@@ -287,7 +304,8 @@ public:
     YieldType& operator()( CallType<X> & other, X & x)
     {
     	other.__call_from_others(x);
-    	_cv->wait(*_lock);
+    	if(!_parent->_is_done)
+    		_cv->wait(*_lock);
     	return *this;
     }
 
