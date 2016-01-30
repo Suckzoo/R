@@ -10,8 +10,10 @@
 
 #include <boost/coroutine/all.hpp>
 
-#define COROUTINE_NAME BOOST_ENABLED
-using boost::coroutines::COROUTINE_NAME;
+using boost::coroutines::coroutine;
+#define symmetric_coroutine coroutine
+#define yield_type pull_type
+#define call_type push_type
 
 #define __COROUTINE_TEST Coroutine_Boost
 #include "test_coroutine.hpp"

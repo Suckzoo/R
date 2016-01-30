@@ -7,8 +7,7 @@
 
 
 #include <R/coroutine.hpp>
-#define COROUTINE_NAME symmetric_coroutine
-using R::COROUTINE_NAME;
+using R::symmetric_coroutine;
 
 #define __COROUTINE_TEST Coroutine_Emulated
 #include "test_coroutine.hpp"

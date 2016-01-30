@@ -65,7 +65,7 @@ TEST(__COROUTINE_TEST, BasicInt)
 {
 	SafeQueue<int> result;
 
-	auto cooperative = [&result](COROUTINE_NAME<int>::yield_type &yield)
+	auto cooperative = [&result](symmetric_coroutine<int>::yield_type &yield)
 	{
 		result.push(2);
 		result.push(yield.get());
@@ -78,7 +78,7 @@ TEST(__COROUTINE_TEST, BasicInt)
 		yield();
 	};
 
-	COROUTINE_NAME<int>::call_type source(cooperative);
+	symmetric_coroutine<int>::call_type source(cooperative);
 	result.push(1);
 	source(3);
 	result.push(5);
@@ -100,7 +100,7 @@ TEST(__COROUTINE_TEST, BasicVoid)
 {
 	SafeQueue<int> result;
 
-	auto cooperative = [&result](COROUTINE_NAME<void>::yield_type &yield)
+	auto cooperative = [&result](symmetric_coroutine<void>::yield_type &yield)
 	{
 		result.push(2);
 		//result.push(yield.get());
@@ -113,7 +113,7 @@ TEST(__COROUTINE_TEST, BasicVoid)
 		yield();
 	};
 
-	COROUTINE_NAME<void>::call_type source(cooperative);
+	symmetric_coroutine<void>::call_type source(cooperative);
 	result.push(1);
 	//source(3);
 	source();
