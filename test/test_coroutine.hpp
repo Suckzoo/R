@@ -61,7 +61,7 @@ public:
 	}
 };
 
-TEST(Coroutine_Test, BasicInt)
+TEST(__COROUTINE_TEST, BasicInt)
 {
 	SafeQueue<int> result;
 
@@ -96,7 +96,7 @@ TEST(Coroutine_Test, BasicInt)
 }
 
 
-TEST(Coroutine_Test, BasicVoid)
+TEST(__COROUTINE_TEST, BasicVoid)
 {
 	SafeQueue<int> result;
 

@@ -11,6 +11,7 @@
 #include <boost/coroutine/all.hpp>
 using boost::coroutines::symmetric_coroutine;
 
+#define __COROUTINE_TEST Coroutine_Boost
 #include "test_coroutine.hpp"
 
 #endif
