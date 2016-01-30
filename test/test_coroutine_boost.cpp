@@ -7,6 +7,7 @@
 
 
 #ifdef BOOST_ENABLED
+#if BOOST_ENABLED
 
 #include <boost/coroutine/all.hpp>
 
@@ -18,5 +19,6 @@ using boost::coroutines::coroutine;
 #define __COROUTINE_TEST Coroutine_Boost
 #include "test_coroutine.hpp"
 
+#endif
 #endif
 
