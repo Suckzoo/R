@@ -9,7 +9,9 @@
 #ifdef BOOST_ENABLED
 
 #include <boost/coroutine/all.hpp>
-using boost::coroutines::BOOST_ENABLED;
+
+#define COROUTINE_NAME BOOST_ENABLED
+using boost::coroutines::COROUTINE_NAME;
 
 #define __COROUTINE_TEST Coroutine_Boost
 #include "test_coroutine.hpp"
