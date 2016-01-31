@@ -4,7 +4,7 @@
 .settings
 
 # additional temp files
-.make.dep
+*.d
 
 # Compiled Object files
 *.slo

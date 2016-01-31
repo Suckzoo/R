@@ -1,7 +1,6 @@
 .PHONY: all test clean
 
-CXX+= -std=gnu++11
-CXXFLAGS+= -O0 -g
+CXXFLAGS+= -std=gnu++11 -O0 -g
 
 ifdef BOOST_ENABLED
 CXXFLAGS+= -DBOOST_ENABLED=$(BOOST_ENABLED)
@@ -13,15 +12,17 @@ endif
 GTEST_PATH= 3rdparty/googletest
 GTEST_LIBS= $(GTEST_PATH)/libgtest.a $(GTEST_PATH)/libgtest_main.a
 TEST_BIN= bin/test
-DEPS= .make.dep
 
 INCLUDES= -Iinclude -I$(GTEST_PATH)/include
 LDFLAGS= -L$(GTEST_PATH)
 LIBS+= -lgtest_main -lgtest -lpthread
 
-HEADERS = $(wildcard include/*.hh) $(wildcard include/*.hpp)
+HEADERS = $(wildcard include/*.hh) $(wildcard include/*.hpp) $(wildcard test/*.hpp)
 TEST_SRCS = $(wildcard test/*.cpp)
 TEST_OBJS = $(TEST_SRCS:.cpp=.o)
+DEPS= $(TEST_SRCS:.cpp=.d)
+
+CXXFLAGS+= $(INCLUDES)
 
 all: $(DEPS) $(TEST_BIN)
 
@@ -38,12 +39,11 @@ $(GTEST_PATH)/Makefile:
 
 $(GTEST_LIBS): $(GTEST_PATH)/Makefile
 	$(MAKE) -C $(GTEST_PATH)
-
-$(DEPS): $(TEST_SRCS) $(HEADERS)
-	@$(CXX) $(CXXFLAGS) $(INCLUDES) -MM $(TEST_SRCS) > $(DEPS)
 	
-.cpp.o:
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+$(TEST_OBJS): %.o: %.cpp Makefile
+
+$(DEPS): %.d: %.cpp Makefile
+	$(CXX) $(CXXFLAGS) -MM $< > $@
 
 -include $(DEPS)
 
