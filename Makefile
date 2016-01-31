@@ -43,7 +43,7 @@ $(GTEST_LIBS): $(GTEST_PATH)/Makefile
 $(TEST_OBJS): %.o: %.cpp Makefile
 
 $(DEPS): %.d: %.cpp Makefile
-	$(CXX) $(CXXFLAGS) -MM $< > $@
+	@$(CXX) $(CXXFLAGS) -MM $< > $@
 
 -include $(DEPS)
 
