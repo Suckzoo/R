@@ -131,3 +131,51 @@ TEST(__COROUTINE_TEST, BasicVoid)
 	//EXPECT_EQ(7, result.take());
 	EXPECT_EQ(8, result.take());
 }
+
+TEST(__COROUTINE_TEST, YieldMore)
+{
+	SafeQueue<int> result;
+
+	auto cooperative = [&result](symmetric_coroutine<void>::yield_type &yield)
+	{
+		result.push(2);
+		yield(); //switch to parent
+		result.push(-1); //never executed
+		yield(); //never executed
+		result.push(-1); //never executed
+	};
+
+	symmetric_coroutine<void>::call_type source(cooperative);
+	result.push(1); //first do
+	source(); //switch to child
+	result.push(3);
+
+	ASSERT_EQ(3, result.size());
+	EXPECT_EQ(1, result.take());
+	EXPECT_EQ(2, result.take());
+	EXPECT_EQ(3, result.take());
+}
+
+TEST(__COROUTINE_TEST, YieldMore_Int)
+{
+	SafeQueue<int> result;
+
+	auto cooperative = [&result](symmetric_coroutine<int>::yield_type &yield)
+	{
+		result.push(yield.get());
+		yield(); //switch to parent
+		result.push(-1); //never executed
+		yield(); //never executed
+		result.push(-1); //never executed
+	};
+
+	symmetric_coroutine<int>::call_type source(cooperative);
+	result.push(1); //first do
+	source(2); //switch to child
+	result.push(3);
+
+	ASSERT_EQ(3, result.size());
+	EXPECT_EQ(1, result.take());
+	EXPECT_EQ(2, result.take());
+	EXPECT_EQ(3, result.take());
+}

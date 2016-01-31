@@ -19,7 +19,7 @@
 namespace R
 {
 
-class DefaultScheduler
+class __interrupted_exception
 {
 
 };
@@ -102,6 +102,10 @@ public:
     		try
     		{
     			fn(*_child);
+    		}
+    		catch(const __interrupted_exception& stopped)
+    		{
+
     		}
     		catch(const std::exception& err)
     		{
@@ -334,6 +338,8 @@ public:
 
     	if(!_parent->_is_done)
     		_cv->wait(*_lock);
+    	if(_parent->_is_done)
+    		throw __interrupted_exception();
     	return *this;
     }
 
@@ -343,6 +349,18 @@ public:
     	other.__call_from_others(x);
     	if(!_parent->_is_done)
     		_cv->wait(*_lock);
+    	if(_parent->_is_done)
+    		throw __interrupted_exception();
+    	return *this;
+    }
+
+    YieldType& operator()( CallType<void> & other)
+    {
+    	other.__call_from_others();
+    	if(!_parent->_is_done)
+    		_cv->wait(*_lock);
+    	if(_parent->_is_done)
+    		throw __interrupted_exception();
     	return *this;
     }
 
