@@ -156,27 +156,61 @@ TEST(__COROUTINE_TEST, YieldMore)
 	EXPECT_EQ(3, result.take());
 }
 
-class TestException
-{
-
-};
-
 TEST(__COROUTINE_TEST, Exception_Void)
 {
 	SafeQueue<int> result;
 
 	auto cooperative = [&result](symmetric_coroutine<void>::yield_type &yield)
 	{
-		throw TestException();
+		result.push(2);
+		throw std::exception();
+		result.push(-1); //never executed
 	};
 
 	symmetric_coroutine<void>::call_type source(cooperative);
 	try
 	{
+		result.push(1);
 		source();
+		result.push(-1); //never executed
 	}
 	catch(const std::exception& err)
 	{
-		printf("Exception caught.\n");
+		result.push(3); //should catch exception
 	}
+
+	ASSERT_EQ(3, result.size());
+	EXPECT_EQ(1, result.take());
+	EXPECT_EQ(2, result.take());
+	EXPECT_EQ(3, result.take());
+}
+
+TEST(__COROUTINE_TEST, Exception_Int)
+{
+	SafeQueue<int> result;
+
+	auto cooperative = [&result](symmetric_coroutine<int>::yield_type &yield)
+	{
+		yield.get();
+		result.push(2);
+		throw std::exception();
+		result.push(-1); //never executed
+	};
+
+	symmetric_coroutine<int>::call_type source(cooperative);
+	try
+	{
+		result.push(1);
+		source(-1);
+		result.push(-1); //never executed
+	}
+	catch(const std::exception& err)
+	{
+		result.push(3); //should catch exception
+	}
+
+	ASSERT_EQ(3, result.size());
+	EXPECT_EQ(1, result.take());
+	EXPECT_EQ(2, result.take());
+	EXPECT_EQ(3, result.take());
 }

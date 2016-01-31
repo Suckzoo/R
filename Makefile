@@ -40,7 +40,7 @@ $(GTEST_PATH)/Makefile:
 $(GTEST_LIBS): $(GTEST_PATH)/Makefile
 	$(MAKE) -C $(GTEST_PATH)
 	
-$(TEST_OBJS): %.o: %.cpp Makefile
+$(TEST_OBJS): %.o: %.cpp Makefile $(HEADERS)
 
 $(DEPS): %.d: %.cpp Makefile
 	@$(CXX) $(CXXFLAGS) -MM $< > $@
