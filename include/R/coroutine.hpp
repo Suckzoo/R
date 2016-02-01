@@ -19,59 +19,164 @@
 namespace R
 {
 
-class __interrupted_exception
-{
-
-};
-
-enum __data_type
-{
-	DATA,
-	EXCEPTION,
-	DONE,
-};
+template<typename CallData>
+class CallType;
 
 template<typename YieldData>
 class YieldType;
 
-template<typename DataType>
-struct __passed_data
+class InterruptedException
 {
-	enum __data_type type;
-	struct
+
+};
+
+class Context
+{
+private:
+	std::thread* _runner;
+	bool _interrupted;
+	bool __inner_finished;
+	std::mutex *_mutex;
+	std::condition_variable *__inner_barrier;
+	std::condition_variable *_barrier;
+	std::unique_lock<std::mutex> *__inner_lock;
+
+	std::exception last_exception;
+	bool _has_throw;
+
+protected:
+	Context() noexcept
 	{
-		std::exception exception;
-		DataType value;
-	}payload;
+		_has_throw = false;
+		_interrupted = false;
+		__inner_finished = false;
+
+		_mutex = new std::mutex;
+		__inner_barrier = new std::condition_variable;
+		_barrier = new std::condition_variable;
+		auto lock = std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
+		__inner_lock = new std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
+
+		lock.lock();
+		_runner = new std::thread(__wrapper, this);
+		_barrier->wait(lock);
+		lock.unlock();
+	}
+	virtual ~Context() noexcept
+	{
+		auto lock = std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
+		lock.lock();
+		_interrupted = true;
+		__inner_barrier->notify_one();
+		lock.unlock();
+
+		_runner->join();
+		delete _runner;
+		delete __inner_barrier;
+		delete _barrier;
+		delete __inner_lock;
+		delete _mutex;
+	}
+
+	void __wrapper() noexcept
+	{
+		__inner_lock->lock();
+		_barrier->notify_one();
+		__inner_barrier->wait(*__inner_lock); //to start
+
+		try
+		{
+			__body();
+		}
+		catch(const InterruptedException &e)
+		{
+			//std::cout<<"interrupted!"<<std::endl;
+		}
+		catch(const std::exception& err)
+		{
+			last_exception = err;
+			_has_throw = true;
+		}
+
+		__inner_finished = true;
+		_barrier->notify_one();
+		__inner_lock->unlock();
+	}
+
+	void __yield(Context* other)
+	{
+		other->_barrier->notify_one();
+		__inner_barrier->wait(*__inner_lock);
+		if(_interrupted)
+			throw InterruptedException();
+	}
+
+	virtual void __body() = 0;
+
+	void run()
+	{
+		auto lock = std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
+		lock.lock();
+		__inner_barrier->notify_one();
+		if(!__inner_finished)
+			_barrier->wait(lock);
+		if(_has_throw)
+		{
+			lock.unlock();
+			throw last_exception;
+			return;
+		}
+		lock.unlock();
+	}
+
+	bool is_running() noexcept
+	{
+		std::lock_guard<std::mutex> guard(*_mutex);
+
+		return is_running_unsafe();
+	}
+
+	bool is_running_unsafe() noexcept
+	{
+		return !this->_interrupted && !this->__inner_finished;
+	}
+
+	void safe_run(std::function<void(void)> fn) noexcept
+	{
+		std::lock_guard<std::mutex> guard(*_mutex);
+		fn();
+	}
+};
+
+template<typename Data>
+struct __data_holder
+{
+	Data value;
 };
 
 template<>
-struct __passed_data<void>
+struct __data_holder<void>
 {
-	enum __data_type type;
-	struct
-	{
-		std::exception exception;
-	}payload;
+
 };
 
 template< typename CallData >
-class CallType
+class CallType : public Context
 {
 public:
-	typedef void (*Body)(YieldType<CallData>&);
+	typedef std::function<void(YieldType<CallData>&)> Body;
 private:
-	typedef struct __passed_data<CallData> MessageType;
-
-	std::queue<MessageType*> _incoming_messages;
 	bool _not_a_coro;
 	YieldType<CallData>* _child;
-	std::mutex* _mutex;
-	std::condition_variable *_cv;
-	std::function<void(void)> _safe_body;
-	bool _is_started;
-	std::thread* _runner;
-	bool _is_done;
+	Body _body;
+
+	__data_holder<CallData> _data;
+
+protected:
+	virtual void __body()
+	{
+		_body(*_child);
+	}
 
 public:
 	//not a coro
@@ -79,11 +184,6 @@ public:
 	{
 		_not_a_coro = true;
 		_child = nullptr;
-		_mutex = nullptr;
-		_cv = nullptr;
-		_is_started = false;
-		_runner = nullptr;
-		_is_done = false;
 	}
 
 	//Creates a coroutine which will execute fn
@@ -91,91 +191,31 @@ public:
 	CallType(Function && fn) : CallType()
     {
 		_not_a_coro = false;
-
-    	_mutex = new std::mutex;
     	_child = new YieldType<CallData>(this);
-    	_cv = new std::condition_variable;
-
-    	_safe_body = [&]()->void
-    	{
-    		_child->_lock->lock();
-    		try
-    		{
-    			fn(*_child);
-    		}
-    		catch(const __interrupted_exception& stopped)
-    		{
-
-    		}
-    		catch(const std::exception& err)
-    		{
-    			auto msg = new MessageType;
-    			msg->type = EXCEPTION;
-    			msg->payload.exception = err;
-    			_incoming_messages.push(msg);
-    			_cv->notify_one();
-    		}
-    		_child->_is_running = false;
-    		_cv->notify_one();
-    		_child->_lock->unlock();
-    	};
+    	_body = fn;
     }
 
-    ~CallType()
+    virtual ~CallType()
     {
-    	if(!_not_a_coro)
-    	{
-    		assert(_mutex != nullptr);
-    		assert(_child != nullptr);
-    		assert(_child->_not_a_coro == false);
-    		assert(_child->_parent == this);
-    		if(_is_started)
-    		{
-    			assert(_runner != nullptr);
-    			assert(_is_done == false);
-    			{
-    				std::lock_guard<std::mutex> guard(*_mutex);
-    				_is_done = true;
-    				_child->_cv->notify_one();
-    			}
-    			_runner->join();
-    			delete _runner;
-    		}
-    		assert(_child->_is_running == false);
-    		delete _child;
-    		_child = nullptr;
 
-    		delete _cv;
-    		_cv = nullptr;
-    		delete _mutex;
-    		_mutex = nullptr;
-    	}
-    	while(!_incoming_messages.empty())
-    	{
-    		auto x = _incoming_messages.front();
-    		_incoming_messages.pop();
-    		delete x;
-    	}
     }
 
-	explicit operator bool() const noexcept
+	explicit operator bool() noexcept
 	{
 		if(_not_a_coro)
 			return false;
 		{
-			std::lock_guard<std::mutex> guard(*_mutex);
-			return _child->_is_running;
+			return this->is_running();
 		}
 	}
 
 	//invert bool()
-	bool operator!() const noexcept
+	bool operator!() noexcept
 	{
 		if(_not_a_coro)
 			return true;
 		{
-			std::lock_guard<std::mutex> guard(*_mutex);
-			return !_child->_is_running;
+			return !this->is_running();
 		}
 	}
 
@@ -185,86 +225,18 @@ public:
 	template<typename CalledData>
     CallType& operator()(CalledData arg)
     {
-    	auto trigger = [&,arg]()->void {
-    		__call_from_others(arg);
-    	};
-    	__push_helper(trigger);
+		this->_data.value = arg;
+    	this->run();
 		return *this;
     }
 
     CallType& operator()(void)
     {
-    	auto trigger = [&]()->void {
-    		__call_from_others();
-    	};
-    	__push_helper(trigger);
+    	this->run();
     	return *this;
     }
 
 private:
-    void __push_helper(std::function<void(void)> function)
-    {
-    	{
-    		std::lock_guard<std::mutex> guard(*_mutex);
-    		if (!_is_started)
-    		{
-    			_child->_is_running = true;
-    			_runner = new std::thread(
-    					_safe_body
-    			);
-    			_is_started = true;
-    		}
-    	}
-    	function();
-    	{
-    		std::unique_lock<std::mutex> lock(*_mutex, std::defer_lock);
-    		lock.lock();
-
-    		while(_incoming_messages.empty() && _child->_is_running)
-    			_cv->wait(lock);
-    		if(_incoming_messages.empty())
-    		{
-    			lock.unlock();
-    			return;
-    		}
-
-    		auto message = _incoming_messages.front();
-
-    		if(message->type == EXCEPTION)
-    		{
-    			std::exception exception = message->payload.exception;
-    			lock.unlock();
-    			throw exception;
-    		}
-    		if(message->type == DONE)
-    		{
-    			_incoming_messages.pop();
-    			delete message;
-    			lock.unlock();
-    			return;
-    		}
-    		assert(0);
-    	}
-    	return;
-    }
-
-public:
-    template<typename CalledData>
-    void __call_from_others(CalledData data)
-    {
-    	std::lock_guard<std::mutex> guard(*_mutex);
-    	auto my_message = new MessageType;
-    	my_message->type = DATA;
-    	my_message->payload.value = data;
-    	_child->_incoming_messages.push(my_message);
-    	_child->_cv->notify_one();
-    }
-
-    void __call_from_others(void)
-    {
-    	std::lock_guard<std::mutex> guard(*_mutex);
-    	_child->_cv->notify_one();
-    }
 
     friend class YieldType<CallData>;
 };
@@ -273,57 +245,44 @@ template< typename YieldData >
 class YieldType
 {
 private:
-	typedef struct __passed_data<YieldData> MessageType;
-	std::queue<MessageType*> _incoming_messages;
-	bool _is_running;
 	bool _not_a_coro;
-	std::condition_variable* _cv;
 	CallType<YieldData>* _parent;
-	std::unique_lock<std::mutex>* _lock;
 
 	YieldType(CallType<YieldData>* parent) : YieldType()
 	{
-		_cv = new std::condition_variable;
 		_parent = parent;
 		_not_a_coro = false;
-		_lock = new std::unique_lock<std::mutex>(*_parent->_mutex, std::defer_lock);
 	}
 public:
 	//not-a-coroutine.
 	YieldType() noexcept
 	{
 		_not_a_coro = true;
-		_is_running = false;
-		_cv = nullptr;
-		_lock = nullptr;
+		_parent = nullptr;
 	}
 
     ~YieldType()
     {
-    	if(!_not_a_coro)
-    	{
-    		assert(_parent != nullptr);
-    		assert(_cv != nullptr);
-    		assert(_lock != nullptr);
-    		delete _lock;
-    		_lock = nullptr;
-    		delete _cv;
-    		_cv = nullptr;
-    	}
-    	assert(_is_running == false);
     	_parent = nullptr;
     }
 
-    //not a coro or completed: true, other false
-	explicit operator bool() const noexcept
+	explicit operator bool() noexcept
 	{
-		return !_not_a_coro && _is_running;
+		if (_not_a_coro)
+			return false;
+		{
+			return _parent->is_running_unsafe();
+		}
 	}
 
-    //!bool()
-	bool operator!() const noexcept
+	//invert bool()
+	bool operator!() noexcept
 	{
-		return _not_a_coro || !_is_running;
+		if (_not_a_coro)
+			return true;
+		{
+			return !_parent->is_running_unsafe();
+		}
 	}
 
     //Pre: *this is not a not-a-coroutine.
@@ -331,36 +290,21 @@ public:
     //(no parameter is passed to the coroutine-function).
     YieldType& operator()()
     {
-    	auto my_message = new MessageType;
-    	my_message->type = DONE;
-    	_parent->_incoming_messages.push(my_message);
-    	_parent->_cv->notify_one();
-
-    	if(!_parent->_is_done)
-    		_cv->wait(*_lock);
-    	if(_parent->_is_done)
-    		throw __interrupted_exception();
+    	_parent->__yield(_parent);
     	return *this;
     }
 
     template< typename X >
     YieldType& operator()( CallType<X> & other, X & x)
     {
-    	other.__call_from_others(x);
-    	if(!_parent->_is_done)
-    		_cv->wait(*_lock);
-    	if(_parent->_is_done)
-    		throw __interrupted_exception();
+    	other._data.value = x;
+    	_parent->__yield(&other);
     	return *this;
     }
 
     YieldType& operator()( CallType<void> & other)
     {
-    	other.__call_from_others();
-    	if(!_parent->_is_done)
-    		_cv->wait(*_lock);
-    	if(_parent->_is_done)
-    		throw __interrupted_exception();
+    	_parent->__yield(&other);
     	return *this;
     }
 
@@ -369,17 +313,7 @@ public:
     //PushType::operator().
     YieldData get()
     {
-    	while(_incoming_messages.empty())
-    		_cv->wait(*_lock);
-    	auto message = _incoming_messages.front();
-    	if(message->type == DATA)
-    	{
-    		YieldData ret = message->payload.value;
-    		delete message;
-    		_incoming_messages.pop();
-    		return ret;
-    	}
-    	assert(0);
+    	return _parent->_data.value;
     }
 
     friend class CallType<YieldData>;

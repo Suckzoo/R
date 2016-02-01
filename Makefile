@@ -9,6 +9,10 @@ else
 LIBS=
 endif
 
+ifndef GTEST_REPEAT
+GTEST_REPEAT=100
+endif
+
 GTEST_PATH= 3rdparty/googletest
 GTEST_LIBS= $(GTEST_PATH)/libgtest.a $(GTEST_PATH)/libgtest_main.a
 TEST_BIN= bin/test
@@ -29,7 +33,7 @@ all: $(DEPS) $(TEST_BIN)
 test: $(DEPS) $(TEST_BIN)
 	valgrind \
 	--leak-check=full --trace-children=yes --error-exitcode=1 \
-	$(TEST_BIN)
+	$(TEST_BIN) --gtest_death_test_style=threadsafe --gtest_repeat=$(GTEST_REPEAT)
 
 $(TEST_BIN): $(TEST_OBJS) $(GTEST_LIBS)
 	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS) $(LIBS)

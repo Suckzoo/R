@@ -5,7 +5,7 @@
  *      Author: KHL
  */
 
-#if 0
+#if 1
 #include <R/coroutine.hpp>
 using R::symmetric_coroutine;
 
