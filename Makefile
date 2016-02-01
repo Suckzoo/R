@@ -5,10 +5,10 @@ CXXFLAGS+= -std=gnu++11 -O0 -g
 ifdef BOOST_ENABLED
 CXXFLAGS+= -DBOOST_ENABLED=$(BOOST_ENABLED)
 LIBS= -lboost_coroutine -lboost_system -lboost_thread -lboost_context
-VALGRIND=valgrind --leak-check=full --trace-children=yes --error-exitcode=1 
+VALGRIND=./
 else
 LIBS=
-VALGRIND=./
+VALGRIND=valgrind --leak-check=full --trace-children=yes --error-exitcode=1 
 endif
 
 ifndef GTEST_REPEAT
