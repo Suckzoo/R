@@ -198,7 +198,7 @@ public:
 
     virtual ~CallType()
     {
-
+    	delete _child;
     }
 
 	explicit operator bool() noexcept
