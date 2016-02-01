@@ -85,6 +85,11 @@ protected:
 					last_exception = err;
 					_has_throw = true;
 				}
+				catch(...)
+				{
+					last_exception = std::exception();
+					_has_throw = true;
+				}
 
 				__inner_finished = true;
 				_barrier->notify_one();
