@@ -2,17 +2,18 @@
 
 CXXFLAGS+= -std=gnu++11 -O0 -g
 
+ifndef GTEST_REPEAT
+GTEST_REPEAT=100
+endif
+
 ifdef BOOST_ENABLED
 CXXFLAGS+= -DBOOST_ENABLED=$(BOOST_ENABLED)
 LIBS= -lboost_coroutine -lboost_system -lboost_thread -lboost_context
 VALGRIND=./
+GTEST_REPEAT=1
 else
 LIBS=
 VALGRIND=valgrind --leak-check=full --trace-children=yes --error-exitcode=1 
-endif
-
-ifndef GTEST_REPEAT
-GTEST_REPEAT=100
 endif
 
 GTEST_PATH= 3rdparty/googletest
