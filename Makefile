@@ -5,8 +5,10 @@ CXXFLAGS+= -std=gnu++11 -O0 -g
 ifdef BOOST_ENABLED
 CXXFLAGS+= -DBOOST_ENABLED=$(BOOST_ENABLED)
 LIBS= -lboost_coroutine -lboost_system -lboost_thread -lboost_context
+VALGRIND=valgrind --leak-check=full --trace-children=yes --error-exitcode=1 
 else
 LIBS=
+VALGRIND=./
 endif
 
 ifndef GTEST_REPEAT
@@ -31,9 +33,7 @@ CXXFLAGS+= $(INCLUDES)
 all: $(DEPS) $(TEST_BIN)
 
 test: $(DEPS) $(TEST_BIN)
-	valgrind \
-	--leak-check=full --trace-children=yes --error-exitcode=1 \
-	$(TEST_BIN) --gtest_death_test_style=threadsafe --gtest_repeat=$(GTEST_REPEAT)
+	$(VALGRIND)$(TEST_BIN) --gtest_death_test_style=threadsafe --gtest_repeat=$(GTEST_REPEAT)
 
 $(TEST_BIN): $(TEST_OBJS) $(GTEST_LIBS)
 	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $@ $(LDFLAGS) $(LIBS)
