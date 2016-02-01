@@ -1,14 +1,6 @@
 language: cpp
 matrix:
-  include:
-    - os: linux
-      compiler: gcc
-      addons:
-        apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-4.7', 'valgrind']
-      env: COMPILER=g++-4.7
-      
+  include:      
     - os: linux
       compiler: gcc
       addons:
@@ -32,14 +24,6 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-5', 'valgrind']
       env: COMPILER=g++-5
-
-    - os: linux
-      compiler: gcc
-      addons:
-        apt:
-          sources: ['ubuntu-toolchain-r-test', 'boost-latest']
-          packages: ['g++-4.7', 'libboost1.55-all-dev']
-      env: COMPILER=g++-4.7 BOOST_ENABLED=1
 
     - os: linux
       compiler: gcc
