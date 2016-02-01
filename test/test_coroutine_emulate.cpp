@@ -5,9 +5,10 @@
  *      Author: KHL
  */
 
-
+#if 0
 #include <R/coroutine.hpp>
 using R::symmetric_coroutine;
 
 #define __COROUTINE_TEST Coroutine_Emulated
 #include "test_coroutine.hpp"
+#endif
