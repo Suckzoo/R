@@ -43,6 +43,7 @@ private:
 
 	std::exception last_exception;
 	bool _has_throw;
+	bool _is_started;
 
 protected:
 	Context() noexcept
@@ -54,11 +55,41 @@ protected:
 		_mutex = new std::mutex;
 		__inner_barrier = new std::condition_variable;
 		_barrier = new std::condition_variable;
-		auto lock = std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
-		__inner_lock = new std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
 
+		__inner_lock = new std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
+		_is_started = false;
+	}
+	void __start(std::function<void(void)> && body_function)
+	{
+		auto lock = std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
 		lock.lock();
-		_runner = new std::thread(__wrapper, this);
+		if (_is_started)
+			assert(0);
+		_is_started = true;
+		_runner = new std::thread([this, body_function]()
+		{
+			__inner_lock->lock();
+			_barrier->notify_one();
+			__inner_barrier->wait(*__inner_lock); //to start
+
+				try
+				{
+					body_function();
+				}
+				catch(const InterruptedException &e)
+				{
+					//std::cout<<"interrupted!"<<std::endl;
+				}
+				catch(const std::exception& err)
+				{
+					last_exception = err;
+					_has_throw = true;
+				}
+
+				__inner_finished = true;
+				_barrier->notify_one();
+				__inner_lock->unlock();
+			});
 		_barrier->wait(lock);
 		lock.unlock();
 	}
@@ -78,31 +109,6 @@ protected:
 		delete _mutex;
 	}
 
-	void __wrapper() noexcept
-	{
-		__inner_lock->lock();
-		_barrier->notify_one();
-		__inner_barrier->wait(*__inner_lock); //to start
-
-		try
-		{
-			__body();
-		}
-		catch(const InterruptedException &e)
-		{
-			//std::cout<<"interrupted!"<<std::endl;
-		}
-		catch(const std::exception& err)
-		{
-			last_exception = err;
-			_has_throw = true;
-		}
-
-		__inner_finished = true;
-		_barrier->notify_one();
-		__inner_lock->unlock();
-	}
-
 	void __yield(Context* other)
 	{
 		other->_barrier->notify_one();
@@ -111,12 +117,12 @@ protected:
 			throw InterruptedException();
 	}
 
-	virtual void __body() = 0;
-
 	void run()
 	{
 		auto lock = std::unique_lock<std::mutex>(*_mutex, std::defer_lock);
 		lock.lock();
+		if(!_is_started)
+			assert(0);
 		__inner_barrier->notify_one();
 		if(!__inner_finished)
 			_barrier->wait(lock);
@@ -138,7 +144,7 @@ protected:
 
 	bool is_running_unsafe() noexcept
 	{
-		return !this->_interrupted && !this->__inner_finished;
+		return !this->_interrupted && !this->__inner_finished && this->_is_started;
 	}
 
 	void safe_run(std::function<void(void)> fn) noexcept
@@ -168,15 +174,7 @@ public:
 private:
 	bool _not_a_coro;
 	YieldType<CallData>* _child;
-	Body _body;
-
 	__data_holder<CallData> _data;
-
-protected:
-	virtual void __body()
-	{
-		_body(*_child);
-	}
 
 public:
 	//not a coro
@@ -192,7 +190,10 @@ public:
     {
 		_not_a_coro = false;
     	_child = new YieldType<CallData>(this);
-    	_body = fn;
+
+    	__start([this,fn](){
+    		fn(*_child);
+    	});
     }
 
     virtual ~CallType()
