@@ -300,6 +300,7 @@ public:
     	return *this;
     }
 
+#ifdef __NOT_VERIFIED
     template< typename X >
     YieldType& operator()( CallType<X> & other, X & x)
     {
@@ -313,6 +314,7 @@ public:
     	_parent->__yield(&other);
     	return *this;
     }
+#endif
 
     //Pre: *this is not a not-a-coroutine.
     //Returns data transferred from coroutine-function via
