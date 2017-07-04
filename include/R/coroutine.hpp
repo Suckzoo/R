@@ -334,7 +334,78 @@ struct symmetric_coroutine
 	typedef YieldType<T> yield_type;
 };
 
-}
+//@TODO: to be discussed... what is it?
+class PullCoroutine;
+class PushCoroutine;
 
+template<typename R>
+class PullType;
+
+template <typename R>
+class PushType;
+
+//@TODO: we should implement range-based iterator
+template <typename R>
+class PullType {
+public:
+	template <typename Function>
+	PullType(Function && fn);
+
+	template <typename StackAllocator, typename Function>
+	PullType( StackAllocator stack_alloc, Function && fn);
+
+	PullType(PullType const& other)=delete;
+
+	PullType & operator=(PullType const& other)=delete;
+
+	~PullType();
+
+	PullType(PullType && other) noexcept;
+
+	PullType & operator=(PullType && other) noexcept;
+
+	PullCoroutine & operator()();
+
+	explicit operator bool() const noexcept;
+
+	bool operator!() const noexcept;
+
+	R get() noexcept;
+};
+
+template <typename Arg>
+class PushType {
+public:
+	template <typename Function>
+	PushType(Function && fn);
+
+	template <typename StackAllocator, typename Function>
+	PushType(StackAllocator stack_alloc, Function fn);
+
+	PushType(PushType const& other)=delete;
+
+	PushType & operator=(PushType const& other)=delete;
+
+	~PushType();
+
+	PushType(PushType && other) noexcept;
+
+	PushType & operator=(PushType && other) noexcept;
+
+	explicit operator bool() const noexcept;
+
+	bool operator!() const noexcept;
+
+	PushType & operator()(Arg arg);
+};
+
+template<typename T>
+struct asymmetric_coroutine
+{
+	typedef PullType<T> pull_type;
+	typedef PushType<T> push_type;
+};
+
+}
 
 #endif /* INCLUDE_R_COROUTINE_HPP_ */
